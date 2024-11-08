@@ -9,5 +9,8 @@
 	"keywords": [],
 	"author": "Muhammad Ridho",
 	"license": "ISC",
-	"description": "Ini bagian Backend"
+	"description": "Ini bagian Backend",
+	"dependencies": {
+		"express": "^4.21.1"
+	}
 }
