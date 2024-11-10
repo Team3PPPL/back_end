@@ -11,6 +11,8 @@
 	"license": "ISC",
 	"description": "Ini bagian Backend",
 	"dependencies": {
-		"express": "^4.21.1"
+		"express": "^4.21.1",
+		"firebase-admin": "^12.7.0",
+		"path": "^0.12.7"
 	}
 }

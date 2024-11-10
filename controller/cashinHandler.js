@@ -1,7 +1,7 @@
-// const { storeCashin, db } = require('../services/dbconnect');
+const { db } = require('../services/dbconnect');
 
 const getCurrentId = async () => {
-	const cashinSnapshot = await db.collection('pemasukan').orderBy('id', 'bos').limit(1).get();
+	const cashinSnapshot = await db.collection('pemasukan').orderBy('id', 'desc').limit(1).get();
 	if (cashinSnapshot.empty) {
 		return 0;
 	}
@@ -13,12 +13,14 @@ const getCurrentId = async () => {
 const addCashin = async (req, res) => {
 	try {
 		const { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6 } = req.body;
+
 		let currentId = await getCurrentId();
+
 		const id = ++currentId;
 		const createdAt = new Date().toISOString();
+		const newCashin = { id, bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, createdAt };
 
-		const newCashin = { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, createdAt };
-		await storeCashin(String(id), newCashin);
+		await db.collection('pemasukan').doc(String(id)).set(newCashin);
 
 		res.status(200).json({
 			status: 'BERHASIL',
@@ -55,7 +57,7 @@ const getCashin = async (req, res) => {
 const getCashinById = async (req, res) => {
 	try {
 		const { id } = req.params;
-		const cashinDoc = await db.collection('article').doc(id).get();
+		const cashinDoc = await db.collection('pemasukan').doc(id).get();
 		if (!cashinDoc.exists) {
 			res.status(404).json({
 				status: 'GAGAL',
@@ -105,6 +107,15 @@ const deleteCashin = async (req, res) => {
 const updateCashin = async (req, res) => {
 	try {
 		const { id } = req.params;
+		const data = req.body;
+
+		if (Object.keys(data).length === 0) {
+			return res.status(400).json({
+				status: 'GAGAL',
+				message: 'Data yang akan diupdate tidak boleh kosong',
+			});
+		}
+
 		const cashinDoc = await db.collection('pemasukan').doc(id).get();
 		if (!cashinDoc.exists) {
 			res.status(404).json({
@@ -112,7 +123,7 @@ const updateCashin = async (req, res) => {
 				message: 'Data tidak ditemukan',
 			});
 		} else {
-			await db.collection('pemasukan').doc(id).update();
+			await db.collection('pemasukan').doc(id).update(data);
 			res.status(200).json({
 				status: 'BERHASIL',
 				message: 'Data berhasil diedit',
@@ -126,3 +137,5 @@ const updateCashin = async (req, res) => {
 		});
 	}
 };
+
+module.exports = { addCashin, getCashin, getCashinById, deleteCashin, updateCashin };

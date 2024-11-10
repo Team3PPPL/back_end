@@ -1,15 +1,29 @@
 const express = require('express');
+const path = require('path');
 const app = express();
+const cashin = require('./routes/pemasukan');
+const cashout = require('./routes/pengeluaran');
 
 const startoServer = async () => {
 	const port = 3000;
-	app.get('/', (req, res) => {
-		res.send('Hai ini API Server Dari Aplikasi SPP Android hehehe!');
-	});
+	app.use(express.json());
+	app.use(express.urlencoded({ extended: true }));
+	app.use(express.static(path.join(__dirname, 'public')));
 
-	app.listen(port, () => {
-		console.log(`http://localhost:${port}`);
-	});
+	try {
+		app.get('/', (req, res) => {
+			res.sendFile(path.join(__dirname, 'public', 'index.html'));
+		});
+
+		app.use('/', cashin);
+		app.use('/', cashout);
+
+		app.listen(port, () => {
+			console.log(`http://localhost:${port}`);
+		});
+	} catch (error) {
+		console.error('Stack trace:', error.stack);
+	}
 };
 
 startoServer().catch((err) => {

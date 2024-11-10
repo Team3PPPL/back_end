@@ -1,4 +1,4 @@
-// const { storeCashout, db } = require('../services/dbconnect');
+const { storeCashout, db } = require('../services/dbconnect');
 
 const getCurrentId = async () => {
 	const cashoutSnapshot = await db.collection('pengeluaran').orderBy('id', 'desc').limit(1).get();
@@ -71,7 +71,7 @@ const addCashout = async (req, res) => {
 			btt,
 			createdAt,
 		};
-		await storeCashout(String(id), newCashout);
+		await db.collection('pengeluaran').doc(String(id)).set(newCashout);
 
 		res.status(200).json({
 			status: 'BERHASIL',
@@ -158,6 +158,15 @@ const deleteCashout = async (req, res) => {
 const updateCashout = async (req, res) => {
 	try {
 		const { id } = req.params;
+		const data = req.body;
+
+		if (Object.keys(data).length === 0) {
+			return res.status(400).json({
+				status: 'GAGAL',
+				message: 'Data yang akan diupdate tidak boleh kosong',
+			});
+		}
+
 		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
 		if (!cashoutDoc.exists) {
 			res.status(404).json({
@@ -179,3 +188,5 @@ const updateCashout = async (req, res) => {
 		});
 	}
 };
+
+module.exports = { addCashout, getCashout, getCashoutById, deleteCashout, updateCashout };
