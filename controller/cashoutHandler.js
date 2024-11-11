@@ -1,4 +1,4 @@
-const { storeCashout, db } = require('../services/dbconnect');
+const { db } = require('../services/dbconnect');
 
 const getCurrentId = async () => {
 	const cashoutSnapshot = await db.collection('pengeluaran').orderBy('id', 'desc').limit(1).get();
@@ -12,67 +12,52 @@ const getCurrentId = async () => {
 
 const addCashout = async (req, res) => {
 	try {
-		const {
-			kontribusiYayasan,
-			honorGurumi,
-			honorKeamanan,
-			honorKebersihan,
-			honorPendamping,
-			eskomputer,
-			espramuka,
-			espaskibra,
-			eskaligrafi,
-			essilat,
-			esfutsal,
-			esqiroat,
-			oplistrik,
-			opinternet,
-			opadm,
-			opgedung,
-			oppkg,
-			optransport,
-			oprapat,
-			opkonsum,
-			opsampah,
-			perbankan,
-			bosGuru,
-			opBus,
-			btt,
-		} = req.body;
+		// Dapatkan currentId dan increment untuk ID baru
 		let currentId = await getCurrentId();
 		const id = ++currentId;
 		const createdAt = new Date().toISOString();
 
-		const newCashout = {
-			kontribusiYayasan,
-			honorGurumi,
-			honorKeamanan,
-			honorKebersihan,
-			honorPendamping,
-			eskomputer,
-			espramuka,
-			espaskibra,
-			eskaligrafi,
-			essilat,
-			esfutsal,
-			esqiroat,
-			oplistrik,
-			opinternet,
-			opadm,
-			opgedung,
-			oppkg,
-			optransport,
-			oprapat,
-			opkonsum,
-			opsampah,
-			perbankan,
-			bosGuru,
-			opBus,
-			btt,
-			createdAt,
-		};
+		// Daftar semua properti yang memungkinkan untuk objek newCashout
+		const allowedFields = [
+			'kontribusiYayasan',
+			'honorGurumi',
+			'honorKeamanan',
+			'honorKebersihan',
+			'honorPendamping',
+			'eskomputer',
+			'espramuka',
+			'espaskibra',
+			'eskaligrafi',
+			'essilat',
+			'esfutsal',
+			'esqiroat',
+			'oplistrik',
+			'opinternet',
+			'opadm',
+			'opgedung',
+			'oppkg',
+			'optransport',
+			'oprapat',
+			'opkonsum',
+			'opsampah',
+			'perbankan',
+			'bosGuru',
+			'opBus',
+			'btt',
+		];
+
+		// Buat objek baru dengan hanya properti yang diinputkan pengguna
+		const newCashout = { createdAt }; // Tambahkan createdAt di sini
+		allowedFields.forEach((field) => {
+			if (req.body[field] !== undefined) {
+				newCashout[field] = req.body[field];
+			}
+		});
+
+		// Simpan data ke database
 		await db.collection('pengeluaran').doc(String(id)).set(newCashout);
 
+		// Kirim respon sukses
 		res.status(200).json({
 			status: 'BERHASIL',
 			message: 'Data berhasil Ditambah',
@@ -80,6 +65,7 @@ const addCashout = async (req, res) => {
 		});
 	} catch (error) {
 		console.error('Error saat menambahkan data pengeluaran:', error);
+		// Kirim respon gagal
 		res.status(500).json({
 			status: 'GAGAL',
 			message: 'Input pengeluaran gagal ditambahkan',

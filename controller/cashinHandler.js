@@ -34,7 +34,7 @@ const addCashin = async (req, res) => {
 			message: 'Input pemasukan gagal ditambahkan',
 		});
 	}
-};
+};	
 
 const getCashin = async (req, res) => {
 	try {
