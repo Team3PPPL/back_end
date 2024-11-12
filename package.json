@@ -4,7 +4,8 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"starto": "node index.js"
+		"starto": "npm install && node index.js",
+		"build": "echo \"No build process specified\""
 	},
 	"keywords": [],
 	"author": "Muhammad Ridho",
