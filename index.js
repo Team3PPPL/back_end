@@ -15,8 +15,8 @@ const startoServer = async () => {
 			res.sendFile(path.join(__dirname, 'public', 'index.html'));
 		});
 
-		app.use('/', cashin);
-		app.use('/', cashout);
+		app.use('/pemasukan', cashin);
+		app.use('/pengeluaran', cashout);
 
 		app.listen(port, () => {
 			console.log(`http://localhost:${port}`);
