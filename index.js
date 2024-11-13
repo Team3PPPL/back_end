@@ -4,16 +4,28 @@ const app = express();
 const cashin = require('./routes/pemasukan');
 const cashout = require('./routes/pengeluaran');
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, './public')));
+const startoServer = async () => {
+	const port = process.env.PORT || 3000;
+	app.use(express.json());
+	app.use(express.urlencoded({ extended: true }));
+	app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => {
-	res.sendFile(path.join(__dirname, './public', 'index.html'));
+	try {
+		app.get('/', (req, res) => {
+			res.sendFile(path.join(__dirname, 'public', 'index.html'));
+		});
+
+		app.use('/pemasukan', cashin);
+		app.use('/pengeluaran', cashout);
+
+		app.listen(port, () => {
+			console.log(`http://localhost:${port}`);
+		});
+	} catch (error) {
+		console.error('Stack trace:', error.stack);
+	}
+};
+
+startoServer().catch((err) => {
+	console.error('Error yang tidak terduga saat Server mulai: ', err.message);
 });
-
-app.use('/pemasukan', cashin);
-app.use('/pengeluaran', cashout);
-
-// Export the app for Vercel's serverless function
-module.exports = app;
