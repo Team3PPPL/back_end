@@ -12,14 +12,24 @@ const getCurrentId = async () => {
 
 const addCashin = async (req, res) => {
 	try {
-		const { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, pemasukanDate: tanggalPemasukan } = req.body;
-		const pemasukanDate = new Date(tanggalPemasukan);
-
+		const { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, tanggalPemasukan: tanggalPemasukan } = req.body;
+		const pemasukanDate = new Date(tanggalPemasukan).toISOString();
 		let currentId = await getCurrentId();
 
 		const id = ++currentId;
 		const createdAt = new Date().toISOString();
-		const newCashin = { id, bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, pemasukanDate, createdAt };
+		const newCashin = {
+			id,
+			bos,
+			kelas1,
+			kelas2,
+			kelas3,
+			kelas4,
+			kelas5,
+			kelas6,
+			tanggalPemasukan: pemasukanDate,
+			createdAt,
+		};
 
 		await db.collection('pemasukan').doc(String(id)).set(newCashin);
 
