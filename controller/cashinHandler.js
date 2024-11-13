@@ -12,13 +12,14 @@ const getCurrentId = async () => {
 
 const addCashin = async (req, res) => {
 	try {
-		const { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6 } = req.body;
+		const { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, pemasukanDate: tanggalPemasukan } = req.body;
+		const pemasukanDate = new Date(tanggalPemasukan);
 
 		let currentId = await getCurrentId();
 
 		const id = ++currentId;
 		const createdAt = new Date().toISOString();
-		const newCashin = { id, bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, createdAt };
+		const newCashin = { id, bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, pemasukanDate, createdAt };
 
 		await db.collection('pemasukan').doc(String(id)).set(newCashin);
 
@@ -34,7 +35,7 @@ const addCashin = async (req, res) => {
 			message: 'Input pemasukan gagal ditambahkan',
 		});
 	}
-};	
+};
 
 const getCashin = async (req, res) => {
 	try {
