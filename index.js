@@ -3,17 +3,19 @@ const path = require('path');
 const app = express();
 const cashin = require('./routes/pemasukan');
 const cashout = require('./routes/pengeluaran');
+const total = require('./routes/total');
 
 const startoServer = async () => {
 	const port = process.env.PORT || 3000;
 	app.use(express.json());
-	app.use(express.static(path.join(__dirname, 'public')));
 
 	try {
+		app.use(express.static(path.join(__dirname, 'public')));
 		app.get('/', (req, res) => {
 			res.sendFile(path.join(__dirname, 'public', 'index.html'));
 		});
 
+		app.use('/total', total);
 		app.use('/pemasukan', cashin);
 		app.use('/pengeluaran', cashout);
 

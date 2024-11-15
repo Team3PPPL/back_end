@@ -1,4 +1,17 @@
 const { db } = require('../services/dbconnect');
+const fs = require('fs');
+const path = require('path');
+
+const formatToRupiah = (amount) => {
+	return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
+};
+
+const formatValue = (value) => {
+	if (value === null || value === undefined || value === 0) {
+		return '-'; // Kembalikan tanda minus jika nilai kosong atau 0
+	}
+	return formatToRupiah(value); // Format ke Rupiah jika nilai valid
+};
 
 const getCurrentId = async () => {
 	const cashoutSnapshot = await db.collection('pengeluaran').orderBy('id', 'desc').limit(1).get();
@@ -10,14 +23,27 @@ const getCurrentId = async () => {
 	return cashout.id;
 };
 
+const incrementAndSetNewId = async () => {
+	const lastId = await getCurrentId();
+	const newId = lastId + 1;
+
+	await db.collection('pengeluaran').doc('currentId').set({ id: newId });
+
+	return newId;
+};
+
 const addCashout = async (req, res) => {
 	try {
-		// Dapatkan currentId dan increment untuk ID baru
 		let currentId = await getCurrentId();
-		const id = ++currentId;
 		const createdAt = new Date().toISOString();
 
-		// Daftar semua properti yang memungkinkan untuk objek newCashout
+		// Ambil tanggalPemasukan dari req.body dan ubah menjadi format yang sesuai
+		let pemasukanDate = null;
+		if (req.body.tanggalPemasukan) {
+			// Mengubah tanggal menjadi format YYYY-MM-DD (tanggal saja)
+			pemasukanDate = new Date(req.body.tanggalPemasukan).toISOString().split('T')[0];
+		}
+
 		const allowedFields = [
 			'kontribusiYayasan',
 			'honorGurumi',
@@ -44,28 +70,49 @@ const addCashout = async (req, res) => {
 			'bosGuru',
 			'opBus',
 			'btt',
+			'tanggalPemasukan', // Tambahkan field tanggalPemasukan ke allowedFields
 		];
 
-		// Buat objek baru dengan hanya properti yang diinputkan pengguna
-		const newCashout = { createdAt }; // Tambahkan createdAt di sini
+		const newEntry = { id: currentId };
 		allowedFields.forEach((field) => {
 			if (req.body[field] !== undefined) {
-				newCashout[field] = req.body[field];
+				// Jika field adalah tanggalPemasukan, gunakan nilai yang sudah diformat
+				if (field === 'tanggalPemasukan' && pemasukanDate) {
+					newEntry[field] = pemasukanDate;
+				} else {
+					newEntry[field] = req.body[field];
+				}
 			}
 		});
 
-		// Simpan data ke database
-		await db.collection('pengeluaran').doc(String(id)).set(newCashout);
+		const docRef = db.collection('pengeluaran').doc(String(currentId));
+		const docSnapshot = await docRef.get();
 
-		// Kirim respon sukses
+		let updatedCashout;
+
+		if (docSnapshot.exists) {
+			const existingData = docSnapshot.data();
+			updatedCashout = {
+				...existingData,
+				...newEntry,
+				updatedAt: createdAt,
+			};
+		} else {
+			updatedCashout = {
+				...newEntry,
+				createdAt,
+			};
+		}
+
+		await docRef.set(updatedCashout);
+
 		res.status(200).json({
 			status: 'BERHASIL',
-			message: 'Data berhasil Ditambah',
-			data: { id: id },
+			message: 'Data berhasil ditambahkan atau diperbarui',
+			data: { id: currentId },
 		});
 	} catch (error) {
 		console.error('Error saat menambahkan data pengeluaran:', error);
-		// Kirim respon gagal
 		res.status(500).json({
 			status: 'GAGAL',
 			message: 'Input pengeluaran gagal ditambahkan',
@@ -73,20 +120,146 @@ const addCashout = async (req, res) => {
 	}
 };
 
+const generateCashoutPDF = async (req, res) => {
+	try {
+		const { id } = req.params;
+		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
+		if (!cashoutDoc.exists) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Data tidak ditemukan',
+			});
+		}
+
+		const cashoutData = cashoutDoc.data();
+
+		// Ambil nilai masing-masing pengeluaran, jika tidak ada, set ke 0
+		const kontribusiYayasan = cashoutData.kontribusiYayasan || 0;
+		const honorGurumi = cashoutData.honorGurumi || 0;
+		const honorKeamanan = cashoutData.honorKeamanan || 0;
+		const honorKebersihan = cashoutData.honorKebersihan || 0;
+		const honorPendamping = cashoutData.honorPendamping || 0;
+		const eskomputer = cashoutData.eskomputer || 0;
+		const espramuka = cashoutData.espramuka || 0;
+		const espaskibra = cashoutData.espaskibra || 0;
+		const eskaligrafi = cashoutData.eskaligrafi || 0;
+		const essilat = cashoutData.essilat || 0;
+		const esfutsal = cashoutData.esfutsal || 0;
+		const oplistrik = cashoutData.oplistrik || 0;
+		const opinternet = cashoutData.opinternet || 0;
+		const opadm = cashoutData.opadm || 0;
+		const opgedung = cashoutData.opgedung || 0;
+		const oppkg = cashoutData.oppkg || 0;
+		const optransport = cashoutData.optransport || 0;
+		const oprapat = cashoutData.oprapat || 0;
+		const opkonsum = cashoutData.opkonsum || 0;
+		const opsampah = cashoutData.opsampah || 0;
+		const perbankan = cashoutData.perbankan || 0;
+		const bosGuru = cashoutData.bosGuru || 0;
+		const opBus = cashoutData.opBus || 0;
+		const btt = cashoutData.btt || 0;
+
+		// Hitung total pengeluaran
+		const totalPengeluaran =
+			kontribusiYayasan +
+			honorGurumi +
+			honorKeamanan +
+			honorKebersihan +
+			honorPendamping +
+			eskomputer +
+			espramuka +
+			espaskibra +
+			eskaligrafi +
+			essilat +
+			esfutsal +
+			oplistrik +
+			opinternet +
+			opadm +
+			opgedung +
+			oppkg +
+			optransport +
+			oprapat +
+			opkonsum +
+			opsampah +
+			perbankan +
+			bosGuru +
+			opBus +
+			btt;
+
+		// Menyusun data tabel untuk HTML
+		const tableData = [
+			{ deskripsi: 'Kontribusi Yayasan', nilai: formatValue(kontribusiYayasan) },
+			{ deskripsi: 'Honor Gurumi', nilai: formatValue(honorGurumi) },
+			{ deskripsi: 'Honor Keamanan', nilai: formatValue(honorKeamanan) },
+			{ deskripsi: 'Honor Kebersihan', nilai: formatValue(honorKebersihan) },
+			{ deskripsi: 'Honor Pendamping', nilai: formatValue(honorPendamping) },
+			{ deskripsi: 'Eskomp', nilai: formatValue(eskomputer) },
+			{ deskripsi: 'Espramuka', nilai: formatValue(espramuka) },
+			{ deskripsi: 'Espaskibra', nilai: formatValue(espaskibra) },
+			{ deskripsi: 'Eskaligrafi', nilai: formatValue(eskaligrafi) },
+			{ deskripsi: 'Essilat', nilai: formatValue(essilat) },
+			{ deskripsi: 'Esfutsal', nilai: formatValue(esfutsal) },
+			{ deskripsi: 'Oplistrik', nilai: formatValue(oplistrik) },
+			{ deskripsi: 'Opinternet', nilai: formatValue(opinternet) },
+			{ deskripsi: 'Opadm', nilai: formatValue(opadm) },
+			{ deskripsi: 'Opgedung', nilai: formatValue(opgedung) },
+			{ deskripsi: 'Oppkg', nilai: formatValue(oppkg) },
+			{ deskripsi: 'Optransport', nilai: formatValue(optransport) },
+			{ deskripsi: 'Oprapat', nilai: formatValue(oprapat) },
+			{ deskripsi: 'Opkonsum', nilai: formatValue(opkonsum) },
+			{ deskripsi: 'Opsampah', nilai: formatValue(opsampah) },
+			{ deskripsi: 'Perbankan', nilai: formatValue(perbankan) },
+			{ deskripsi: 'BOS Guru', nilai: formatValue(bosGuru) },
+			{ deskripsi: 'OpBus', nilai: formatValue(opBus) },
+			{ deskripsi: 'BTT', nilai: formatValue(btt) },
+			{ deskripsi: 'Total Pengeluaran', nilai: formatValue(totalPengeluaran) }, // Tambahkan total di sini
+		];
+
+		// Ambil HTML Template
+		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pengeluaran.html'), 'utf-8');
+		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
+
+		// Kirim HTML sebagai response
+		res.send(htmlContent);
+	} catch (error) {
+		console.error('Error saat membuat laporan HTML untuk Cashout:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Gagal membuat laporan HTML',
+		});
+	}
+};
+
+const finishSummary = async (req, res) => {
+	try {
+		await incrementAndSetNewId();
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Summary selesai dan ID baru dibuat',
+		});
+	} catch (error) {
+		console.error('Error saat menyelesaikan summary:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Tidak bisa menyelesaikan summary',
+		});
+	}
+};
+
 const getCashout = async (req, res) => {
 	try {
 		const cashoutSnapshot = await db.collection('pengeluaran').get();
-		const cashout = cashoutSnapshot.docs.map((doc) => doc.data());
+		const data = cashoutSnapshot.docs.filter((doc) => doc.id !== 'currentId').map((doc) => ({ id: doc.id, ...doc.data() }));
 
 		res.status(200).json({
 			status: 'BERHASIL',
-			data: cashout,
+			data: data,
 		});
 	} catch (error) {
-		console.error('Error Saat Mendapatkan data pengeluaran:', error);
+		console.error('Error saat mengambil data pengeluaran:', error);
 		res.status(500).json({
 			status: 'GAGAL',
-			message: 'pengeluaran gagal ditampilkan',
+			message: 'Gagal mengambil data pengeluaran',
 		});
 	}
 };
@@ -94,7 +267,7 @@ const getCashout = async (req, res) => {
 const getCashoutById = async (req, res) => {
 	try {
 		const { id } = req.params;
-		const cashoutDoc = await db.collection('article').doc(id).get();
+		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
 		if (!cashoutDoc.exists) {
 			res.status(404).json({
 				status: 'GAGAL',
@@ -104,7 +277,7 @@ const getCashoutById = async (req, res) => {
 			res.status(200).json({
 				status: 'BERHASIL',
 				data: {
-					article: cashoutDoc.data(),
+					pengeluaran: cashoutDoc.data(),
 				},
 			});
 	} catch (error) {
@@ -155,19 +328,21 @@ const updateCashout = async (req, res) => {
 
 		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
 		if (!cashoutDoc.exists) {
-			res.status(404).json({
+			return res.status(404).json({
 				status: 'GAGAL',
 				message: 'Data tidak ditemukan',
 			});
-		} else {
-			await db.collection('pengeluaran').doc(id).update();
-			res.status(200).json({
-				status: 'BERHASIL',
-				message: 'Data berhasil diedit',
-			});
 		}
+
+		// Lakukan update dengan data yang diberikan
+		await db.collection('pengeluaran').doc(id).update(data);
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Data berhasil diedit',
+		});
 	} catch (error) {
-		console.error('Error saat mengedit Data:', error);
+		console.error('Error saat mengedit data:', error);
 		res.status(500).json({
 			status: 'GAGAL',
 			message: 'Gagal mengedit data',
@@ -175,4 +350,4 @@ const updateCashout = async (req, res) => {
 	}
 };
 
-module.exports = { addCashout, getCashout, getCashoutById, deleteCashout, updateCashout };
+module.exports = { addCashout, getCashout, getCashoutById, deleteCashout, updateCashout, finishSummary, generateCashoutPDF };
