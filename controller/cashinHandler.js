@@ -58,16 +58,7 @@ const getCashin = async (req, res) => {
 		const cashinSnapshot = await db.collection('pemasukan').get();
 		const cashin = cashinSnapshot.docs.map((doc) => {
 			const data = doc.data();
-			return {
-				...data,
-				bos: formatToRupiah(data.bos || 0),
-				kelas1: formatToRupiah(data.kelas1 || 0),
-				kelas2: formatToRupiah(data.kelas2 || 0),
-				kelas3: formatToRupiah(data.kelas3 || 0),
-				kelas4: formatToRupiah(data.kelas4 || 0),
-				kelas5: formatToRupiah(data.kelas5 || 0),
-				kelas6: formatToRupiah(data.kelas6 || 0),
-			};
+			return data;
 		});
 
 		res.status(200).json({
@@ -94,20 +85,10 @@ const getCashinById = async (req, res) => {
 			});
 		} else {
 			const cashinData = cashinDoc.data();
-			const formattedData = {
-				...cashinData,
-				bos: formatToRupiah(cashinData.bos || 0),
-				kelas1: formatToRupiah(cashinData.kelas1 || 0),
-				kelas2: formatToRupiah(cashinData.kelas2 || 0),
-				kelas3: formatToRupiah(cashinData.kelas3 || 0),
-				kelas4: formatToRupiah(cashinData.kelas4 || 0),
-				kelas5: formatToRupiah(cashinData.kelas5 || 0),
-				kelas6: formatToRupiah(cashinData.kelas6 || 0),
-			};
 
 			res.status(200).json({
 				status: 'BERHASIL',
-				data: formattedData,
+				data: cashinData,
 			});
 		}
 	} catch (error) {
