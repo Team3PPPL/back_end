@@ -43,38 +43,38 @@ const addCashout = async (req, res) => {
 		}
 
 		const allowedFields = [
-			'kontribusiYayasan',
-			'honorGurumi',
-			'honorKeamanan',
-			'honorKebersihan',
-			'honorPendamping',
-			'eskomputer',
-			'espramuka',
-			'espaskibra',
-			'eskaligrafi',
-			'essilat',
-			'esfutsal',
-			'esqiroat',
-			'oplistrik',
-			'opinternet',
-			'opadm',
-			'opgedung',
-			'oppkg',
-			'optransport',
-			'oprapat',
-			'opkonsum',
-			'opsampah',
-			'perbankan',
-			'bosGuru',
-			'opBus',
-			'btt',
-			'tanggalPengeluaran',
+			'Kontribusi Yayasan',
+			'Honor Guru MI',
+			'Honor Keamanan',
+			'Honor Kebersihan',
+			'Honor Pendamping',
+			'Komputer',
+			'Pramuka',
+			'Paskibra',
+			'Kaligrafi',
+			'Pencak Silat',
+			'Futsal & Sewa Lapangan',
+			"Qiro'at",
+			'Listrik / Telepon',
+			'Internet',
+			'Administrasi / ATK',
+			'Sarana dan Prasarana',
+			'PKG / PKM',
+			'Transport Dinas',
+			'Biaya Rapat',
+			'Konsumsi Guru',
+			'Langganan Sampah',
+			'Perbankan',
+			'Bos Buku',
+			'Operasional Bos + LPJ',
+			'BTT',
+			'Tanggal Pengeluaran',
 		];
 
 		const newEntry = { id: currentId };
 		allowedFields.forEach((field) => {
 			if (req.body[field] !== undefined) {
-				if (field === 'tanggalPengeluaran' && pengeluaranDate) {
+				if (field === 'Tanggal Pengeluaran' && pengeluaranDate) {
 					newEntry[field] = pengeluaranDate;
 				} else {
 					newEntry[field] = req.body[field];
