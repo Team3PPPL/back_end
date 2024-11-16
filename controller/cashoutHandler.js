@@ -8,9 +8,9 @@ const formatToRupiah = (amount) => {
 
 const formatValue = (value) => {
 	if (value === null || value === undefined || value === 0) {
-		return '-'; // Kembalikan tanda minus jika nilai kosong atau 0
+		return '-';
 	}
-	return formatToRupiah(value); // Format ke Rupiah jika nilai valid
+	return formatToRupiah(value);
 };
 
 const getCurrentId = async () => {
@@ -37,11 +37,9 @@ const addCashout = async (req, res) => {
 		let currentId = await getCurrentId();
 		const createdAt = new Date().toISOString();
 
-		// Ambil tanggalPemasukan dari req.body dan ubah menjadi format yang sesuai
-		let pemasukanDate = null;
+		let pengeluaranDate = null;
 		if (req.body.tanggalPemasukan) {
-			// Mengubah tanggal menjadi format YYYY-MM-DD (tanggal saja)
-			pemasukanDate = new Date(req.body.tanggalPemasukan).toISOString().split('T')[0];
+			pengeluaranDate = new Date(req.body.tanggalPengeluaran).toISOString().split('T')[0];
 		}
 
 		const allowedFields = [
@@ -70,15 +68,14 @@ const addCashout = async (req, res) => {
 			'bosGuru',
 			'opBus',
 			'btt',
-			'tanggalPemasukan', // Tambahkan field tanggalPemasukan ke allowedFields
+			'tanggalPengeluaran',
 		];
 
 		const newEntry = { id: currentId };
 		allowedFields.forEach((field) => {
 			if (req.body[field] !== undefined) {
-				// Jika field adalah tanggalPemasukan, gunakan nilai yang sudah diformat
-				if (field === 'tanggalPemasukan' && pemasukanDate) {
-					newEntry[field] = pemasukanDate;
+				if (field === 'tanggalPengeluaran' && pengeluaranDate) {
+					newEntry[field] = pengeluaranDate;
 				} else {
 					newEntry[field] = req.body[field];
 				}
@@ -133,7 +130,6 @@ const generateCashoutPDF = async (req, res) => {
 
 		const cashoutData = cashoutDoc.data();
 
-		// Ambil nilai masing-masing pengeluaran, jika tidak ada, set ke 0
 		const kontribusiYayasan = cashoutData.kontribusiYayasan || 0;
 		const honorGurumi = cashoutData.honorGurumi || 0;
 		const honorKeamanan = cashoutData.honorKeamanan || 0;
@@ -159,7 +155,6 @@ const generateCashoutPDF = async (req, res) => {
 		const opBus = cashoutData.opBus || 0;
 		const btt = cashoutData.btt || 0;
 
-		// Hitung total pengeluaran
 		const totalPengeluaran =
 			kontribusiYayasan +
 			honorGurumi +
@@ -186,7 +181,6 @@ const generateCashoutPDF = async (req, res) => {
 			opBus +
 			btt;
 
-		// Menyusun data tabel untuk HTML
 		const tableData = [
 			{ deskripsi: 'Kontribusi Yayasan', nilai: formatValue(kontribusiYayasan) },
 			{ deskripsi: 'Honor Gurumi', nilai: formatValue(honorGurumi) },
@@ -212,14 +206,12 @@ const generateCashoutPDF = async (req, res) => {
 			{ deskripsi: 'BOS Guru', nilai: formatValue(bosGuru) },
 			{ deskripsi: 'OpBus', nilai: formatValue(opBus) },
 			{ deskripsi: 'BTT', nilai: formatValue(btt) },
-			{ deskripsi: 'Total Pengeluaran', nilai: formatValue(totalPengeluaran) }, // Tambahkan total di sini
+			{ deskripsi: 'Total Pengeluaran', nilai: formatValue(totalPengeluaran) },
 		];
 
-		// Ambil HTML Template
 		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pengeluaran.html'), 'utf-8');
 		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
 
-		// Kirim HTML sebagai response
 		res.send(htmlContent);
 	} catch (error) {
 		console.error('Error saat membuat laporan HTML untuk Cashout:', error);
