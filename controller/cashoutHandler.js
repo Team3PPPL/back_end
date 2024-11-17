@@ -39,7 +39,7 @@ const addCashout = async (req, res) => {
 
 		let pengeluaranDate = null;
 		if (req.body.tanggalPemasukan) {
-			pengeluaranDate = new Date(req.body.tanggalPengeluaran).toISOString().split('T')[0];
+			pengeluaranDate = new Date(req.body.tanggalPengeluaran).toISOString();
 		}
 
 		const allowedFields = [

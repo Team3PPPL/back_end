@@ -19,11 +19,11 @@ const getCurrentId = async () => {
 const addCashin = async (req, res) => {
 	try {
 		const { bos, kelas1, kelas2, kelas3, kelas4, kelas5, kelas6, tanggalPemasukan } = req.body;
-		const pemasukanDate = new Date(tanggalPemasukan).toISOString().split('T')[0];
+		const pemasukanDate = new Date(tanggalPemasukan).toISOString();
 		let currentId = await getCurrentId();
 
 		const id = ++currentId;
-		const createdAt = new Date().toISOString().split('T')[0];
+		const createdAt = new Date().toISOString();
 		const newCashin = {
 			id,
 			bos,
@@ -120,7 +120,6 @@ const generateCashinPDF = async (req, res) => {
 		const kelas5 = cashinData.kelas5 || 0;
 		const kelas6 = cashinData.kelas6 || 0;
 
-		// Hitung total pemasukan
 		const totalPemasukan = bos + kelas1 + kelas2 + kelas3 + kelas4 + kelas5 + kelas6;
 
 		const tableData = [
