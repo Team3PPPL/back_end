@@ -7,10 +7,10 @@ const {
 	getTotalPengeluaranPerId,
 } = require('../controller/totalHandler');
 
-total.get('pemasukan/', getTotalPemasukanAllIds);
-total.get('pemasukan/:id', getTotalPemasukanPerId);
+total.get('/pemasukan/', getTotalPemasukanAllIds);
+total.get('/pemasukan/:id', getTotalPemasukanPerId);
 
-total.get('pengeluaran/', getTotalPengeluaranPerId);
-total.get('pengeluaran/:id', getTotalPengeluaranAllIds);
+total.get('/pengeluaran/', getTotalPengeluaranPerId);
+total.get('/pengeluaran/:id', getTotalPengeluaranAllIds);
 
 module.exports = total;
