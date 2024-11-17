@@ -9,11 +9,11 @@ const {
 	generateCashinPDF,
 } = require('../controller/cashinHandler');
 
-pemasukan.post('/', addCashin);
+pemasukan.post('/input', addCashin);
 pemasukan.get('/', getCashin);
 pemasukan.get('/:id', getCashinById);
-pemasukan.delete('/:id', deleteCashin);
-pemasukan.put('/:id', updateCashin);
+pemasukan.delete('/delete/:id', deleteCashin);
+pemasukan.put('/update/:id', updateCashin);
 pemasukan.get('/:id/pdf', generateCashinPDF);
 
 module.exports = pemasukan;
