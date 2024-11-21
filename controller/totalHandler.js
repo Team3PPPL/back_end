@@ -1,172 +1,124 @@
 const { db } = require('../services/dbconnect');
 
-const formatToRupiah = (amount) => {
-	return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
-};
-
-const getTotalPemasukanAllIds = async (req, res) => {
+const getAllTotalPemasukan = async (req, res) => {
 	try {
-		const cashinSnapshot = await db.collection('pemasukan').get();
-		let totalAllIds = 0;
+		// Mengambil semua dokumen di koleksi 'pemasukan'
+		const snapshot = await db.collection('pemasukan').get();
 
-		cashinSnapshot.forEach((doc) => {
-			const { bos = 0, kelas1 = 0, kelas2 = 0, kelas3 = 0, kelas4 = 0, kelas5 = 0, kelas6 = 0 } = doc.data();
-			totalAllIds += bos + kelas1 + kelas2 + kelas3 + kelas4 + kelas5 + kelas6;
-		});
+		let totalPemasukan = 0;
 
-		const formattedTotalAllIds = formatToRupiah(totalAllIds);
-
-		res.status(200).json({
-			status: 'BERHASIL',
-			totalAllIds: formattedTotalAllIds,
-		});
-	} catch (error) {
-		console.error('Error saat menghitung total semua ID:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal menghitung total semua ID',
-		});
-	}
-};
-
-const getTotalPemasukanPerId = async (req, res) => {
-	try {
-		const { id } = req.params;
-		const cashinDoc = await db.collection('pemasukan').doc(id).get();
-		if (!cashinDoc.exists) {
-			return res.status(404).json({
-				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
-			});
-		}
-
-		const { bos = 0, kelas1 = 0, kelas2 = 0, kelas3 = 0, kelas4 = 0, kelas5 = 0, kelas6 = 0 } = cashinDoc.data();
-		const totalPerId = bos + kelas1 + kelas2 + kelas3 + kelas4 + kelas5 + kelas6;
-		const formattedTotalPerId = formatToRupiah(totalPerId);
-
-		res.status(200).json({
-			status: 'BERHASIL',
-			totalPerId: formattedTotalPerId,
-		});
-	} catch (error) {
-		console.error('Error saat menghitung total per ID:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal menghitung total per ID',
-		});
-	}
-};
-
-const getTotalPengeluaranAllIds = async (req, res) => {
-	try {
-		const expenseSnapshot = await db.collection('pengeluaran').get();
-		let totalAllIds = 0;
-
-		expenseSnapshot.forEach((doc) => {
+		// Iterasi setiap dokumen
+		snapshot.docs.forEach((doc) => {
 			const data = doc.data();
-			const pengeluaranKeys = [
-				'Kontribusi Yayasan',
-				'Honor Guru MI',
-				'Honor Keamanan',
-				'Honor Kebersihan',
-				'Honor Pendamping',
-				'Komputer',
-				'Pramuka',
-				'Paskibra',
-				'Kaligrafi',
-				'Pencak Silat',
-				'Futsal & Sewa Lapangan',
-				"Qiro'at",
-				'Listrik / Telepon',
-				'Internet',
-				'Administrasi / ATK',
-				'Sarana dan Prasarana',
-				'PKG / PKM',
-				'Transport Dinas',
-				'Biaya Rapat',
-				'Konsumsi Guru',
-				'Langganan Sampah',
-				'Perbankan',
-				'Bos Buku',
-				'Operasional Bos + LPJ',
-				'BTT',
-			];
-			totalAllIds += pengeluaranKeys.reduce((sum, key) => sum + (data[key] || 0), 0);
+			// Tambahkan nilai untuk setiap properti yang relevan
+			const keys = ['bos', 'kelas1', 'kelas2', 'kelas3', 'kelas4', 'kelas5', 'kelas6'];
+			keys.forEach((key) => {
+				if (data[key]) {
+					totalPemasukan += data[key];
+				}
+			});
 		});
 
-		const formattedTotalAllIds = formatToRupiah(totalAllIds);
-
-		res.status(200).json({
-			status: 'BERHASIL',
-			totalAllIds: formattedTotalAllIds,
-		});
+		res.status(200).json({ status: 'BERHASIL', totalPemasukan });
 	} catch (error) {
-		console.error('Error saat menghitung total pengeluaran semua ID:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal menghitung total pengeluaran semua ID',
-		});
+		console.error('Error menghitung total pemasukan:', error);
+		res.status(500).json({ status: 'GAGAL', message: 'Gagal menghitung total pemasukan' });
 	}
 };
 
-const getTotalPengeluaranPerId = async (req, res) => {
+const getTotalPemasukanId = async (req, res) => {
 	try {
 		const { id } = req.params;
-		const expenseDoc = await db.collection('pengeluaran').doc(id).get();
-		if (!expenseDoc.exists) {
-			return res.status(404).json({
-				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
-			});
+
+		// Mengambil dokumen berdasarkan ID
+		const doc = await db.collection('pemasukan').doc(id).get();
+
+		if (!doc.exists) {
+			return res.status(404).json({ status: 'GAGAL', message: 'Data tidak ditemukan' });
 		}
 
-		const data = expenseDoc.data();
-		const pengeluaranKeys = [
-			'Kontribusi Yayasan',
-			'Honor Guru MI',
-			'Honor Keamanan',
-			'Honor Kebersihan',
-			'Honor Pendamping',
-			'Komputer',
-			'Pramuka',
-			'Paskibra',
-			'Kaligrafi',
-			'Pencak Silat',
-			'Futsal & Sewa Lapangan',
-			"Qiro'at",
-			'Listrik / Telepon',
-			'Internet',
-			'Administrasi / ATK',
-			'Sarana dan Prasarana',
-			'PKG / PKM',
-			'Transport Dinas',
-			'Biaya Rapat',
-			'Konsumsi Guru',
-			'Langganan Sampah',
-			'Perbankan',
-			'Bos Buku',
-			'Operasional Bos + LPJ',
-			'BTT',
-		];
-		const totalPerId = pengeluaranKeys.reduce((sum, key) => sum + (data[key] || 0), 0);
-		const formattedTotalPerId = formatToRupiah(totalPerId);
+		const data = doc.data();
+		let totalPemasukan = 0;
 
-		res.status(200).json({
-			status: 'BERHASIL',
-			totalPerId: formattedTotalPerId,
+		// Iterasi untuk setiap properti yang relevan
+		const keys = ['bos', 'kelas1', 'kelas2', 'kelas3', 'kelas4', 'kelas5', 'kelas6'];
+		keys.forEach((key) => {
+			if (data[key]) {
+				totalPemasukan += data[key];
+			}
 		});
+
+		res.status(200).json({ status: 'BERHASIL', totalPemasukan });
 	} catch (error) {
-		console.error('Error saat menghitung total pengeluaran per ID:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal menghitung total pengeluaran per ID',
+		console.error('Error menghitung total pemasukan ID:', error);
+		res.status(500).json({ status: 'GAGAL', message: 'Gagal menghitung total pemasukan ID' });
+	}
+};
+
+const getAllTotalpengeluaran = async (req, res) => {
+	try {
+		// Mengambil semua dokumen di koleksi 'pengeluaran'
+		const snapshot = await db.collection('pengeluaran').get();
+
+		let totalPengeluaran = 0;
+
+		// Iterasi setiap dokumen
+		snapshot.docs.forEach((doc) => {
+			const cashouts = doc.data().cashouts || {};
+			// Iterasi setiap kategori cashout
+			for (const category in cashouts) {
+				const items = cashouts[category];
+				// Iterasi setiap nilai dalam kategori
+				for (const key in items) {
+					if (typeof items[key] === 'number') {
+						totalPengeluaran += items[key];
+					}
+				}
+			}
 		});
+
+		res.status(200).json({ status: 'BERHASIL', totalPengeluaran });
+	} catch (error) {
+		console.error('Error menghitung total pengeluaran:', error);
+		res.status(500).json({ status: 'GAGAL', message: 'Gagal menghitung total pengeluaran' });
+	}
+};
+
+const getTotalPengeluaranId = async (req, res) => {
+	try {
+		const { decadeId } = req.params;
+
+		// Mengambil dokumen berdasarkan ID
+		const doc = await db.collection('pengeluaran').doc(decadeId).get();
+
+		if (!doc.exists) {
+			return res.status(404).json({ status: 'GAGAL', message: 'Data tidak ditemukan' });
+		}
+
+		const cashouts = doc.data().cashouts || {};
+		let totalPengeluaran = 0;
+
+		// Iterasi setiap kategori cashout
+		for (const category in cashouts) {
+			const items = cashouts[category];
+			// Iterasi setiap nilai dalam kategori
+			for (const key in items) {
+				if (typeof items[key] === 'number') {
+					totalPengeluaran += items[key];
+				}
+			}
+		}
+
+		res.status(200).json({ status: 'BERHASIL', totalPengeluaran });
+	} catch (error) {
+		console.error('Error menghitung total pengeluaran ID:', error);
+		res.status(500).json({ status: 'GAGAL', message: 'Gagal menghitung total pengeluaran ID' });
 	}
 };
 
 module.exports = {
-	getTotalPemasukanAllIds,
-	getTotalPemasukanPerId,
-	getTotalPengeluaranAllIds,
-	getTotalPengeluaranPerId,
+	getAllTotalPemasukan,
+	getTotalPemasukanId,
+	getAllTotalpengeluaran,
+	getTotalPengeluaranId,
 };

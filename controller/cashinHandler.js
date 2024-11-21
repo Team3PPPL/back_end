@@ -100,53 +100,6 @@ const getCashinById = async (req, res) => {
 	}
 };
 
-const generateCashinPDF = async (req, res) => {
-	try {
-		const { id } = req.params;
-		const cashinDoc = await db.collection('pemasukan').doc(id).get();
-		if (!cashinDoc.exists) {
-			return res.status(404).json({
-				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
-			});
-		}
-
-		const cashinData = cashinDoc.data();
-		const bos = cashinData.bos || 0;
-		const kelas1 = cashinData.kelas1 || 0;
-		const kelas2 = cashinData.kelas2 || 0;
-		const kelas3 = cashinData.kelas3 || 0;
-		const kelas4 = cashinData.kelas4 || 0;
-		const kelas5 = cashinData.kelas5 || 0;
-		const kelas6 = cashinData.kelas6 || 0;
-
-		const totalPemasukan = bos + kelas1 + kelas2 + kelas3 + kelas4 + kelas5 + kelas6;
-
-		const tableData = [
-			{ deskripsi: 'BOS', nilai: formatToRupiah(bos) },
-			{ deskripsi: 'Kelas 1', nilai: formatToRupiah(kelas1) },
-			{ deskripsi: 'Kelas 2', nilai: formatToRupiah(kelas2) },
-			{ deskripsi: 'Kelas 3', nilai: formatToRupiah(kelas3) },
-			{ deskripsi: 'Kelas 4', nilai: formatToRupiah(kelas4) },
-			{ deskripsi: 'Kelas 5', nilai: formatToRupiah(kelas5) },
-			{ deskripsi: 'Kelas 6', nilai: formatToRupiah(kelas6) },
-			{ deskripsi: 'Tanggal Pemasukan', nilai: cashinData.tanggalPemasukan },
-			{ deskripsi: 'Total Pemasukan', nilai: formatToRupiah(totalPemasukan) },
-		];
-
-		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pemasukan.html'), 'utf-8');
-		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
-
-		res.send(htmlContent);
-	} catch (error) {
-		console.error('Error saat membuat HTML:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal membuat laporan HTML',
-		});
-	}
-};
-
 const deleteCashin = async (req, res) => {
 	try {
 		const { id } = req.params;
@@ -203,6 +156,52 @@ const updateCashin = async (req, res) => {
 			status: 'GAGAL',
 			message: 'Gagal mengedit Data',
 		});
+	}
+};
+
+const generateCashinPDF = async (req, res) => {
+	try {
+		const { id } = req.params;
+		const cashinDoc = await db.collection('pemasukan').doc(id).get();
+
+		if (!cashinDoc.exists) {
+			return res.status(404).json({ status: 'GAGAL', message: 'Data tidak ditemukan' });
+		}
+
+		const cashinData = cashinDoc.data();
+		const { bos = 0, kelas1 = 0, kelas2 = 0, kelas3 = 0, kelas4 = 0, kelas5 = 0, kelas6 = 0, tanggalPemasukan } = cashinData;
+
+		// Hitung total pemasukan
+		const totalPemasukan = bos + kelas1 + kelas2 + kelas3 + kelas4 + kelas5 + kelas6;
+
+		// Format tahun untuk tanggalPemasukan menjadi "YYYY/YYYY"
+		const informasiTanggal = tanggalPemasukan
+			? (() => {
+					const date = new Date(tanggalPemasukan);
+					return isNaN(date) ? 'Tanggal tidak tersedia' : `${date.getFullYear()}/${date.getFullYear() + 1}`;
+			  })()
+			: 'Tanggal tidak tersedia';
+
+		// Tabel data
+		const tableData = [
+			{ deskripsi: 'BOS', nilai: formatToRupiah(bos) },
+			{ deskripsi: 'Kelas 1', nilai: formatToRupiah(kelas1) },
+			{ deskripsi: 'Kelas 2', nilai: formatToRupiah(kelas2) },
+			{ deskripsi: 'Kelas 3', nilai: formatToRupiah(kelas3) },
+			{ deskripsi: 'Kelas 4', nilai: formatToRupiah(kelas4) },
+			{ deskripsi: 'Kelas 5', nilai: formatToRupiah(kelas5) },
+			{ deskripsi: 'Kelas 6', nilai: formatToRupiah(kelas6) },
+			{ deskripsi: `Total Pemasukan (${informasiTanggal})`, nilai: formatToRupiah(totalPemasukan) },
+		];
+
+		// Membaca template dan mengganti data
+		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pemasukan.html'), 'utf-8');
+		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
+
+		res.setHeader('Content-Type', 'text/html').send(htmlContent);
+	} catch (error) {
+		console.error('Error saat membuat HTML:', error);
+		res.status(500).json({ status: 'GAGAL', message: 'Gagal membuat laporan HTML' });
 	}
 };
 

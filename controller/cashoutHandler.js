@@ -23,26 +23,11 @@ const getCurrentId = async () => {
 	return cashout.id;
 };
 
-const incrementAndSetNewId = async () => {
-	const lastId = await getCurrentId();
-	const newId = lastId + 1;
-
-	await db.collection('pengeluaran').doc('currentId').set({ id: newId });
-
-	return newId;
-};
-
 const addCashout = async (req, res) => {
 	try {
-		let currentId = await getCurrentId();
-		const createdAt = new Date().toISOString();
+		const { decadeId } = req.params;
 
-		let pengeluaranDate = null;
-		if (req.body.tanggalPemasukan) {
-			pengeluaranDate = new Date(req.body.tanggalPengeluaran).toISOString();
-		}
-
-		const allowedFields = [
+		const cashoutFields = [
 			'Kontribusi Yayasan',
 			'Honor Guru MI',
 			'Honor Keamanan',
@@ -71,42 +56,40 @@ const addCashout = async (req, res) => {
 			'Tanggal Pengeluaran',
 		];
 
-		const newEntry = { id: currentId };
-		allowedFields.forEach((field) => {
-			if (req.body[field] !== undefined) {
-				if (field === 'Tanggal Pengeluaran' && pengeluaranDate) {
-					newEntry[field] = pengeluaranDate;
-				} else {
-					newEntry[field] = req.body[field];
-				}
+		const newCashout = {};
+
+		for (const field in req.body) {
+			if (!cashoutFields.includes(field)) {
+				return res.status(404).json({
+					status: 'GAGAL',
+					message: `Data Tidak Sesuai: Field '${field}' tidak ditemukan dalam daftar field yang valid`,
+				});
 			}
-		});
+			newCashout[field] = req.body[field];
+		}
+		newCashout['createdAt'] = new Date().toISOString();
+		const cashoutId = new Date().getTime().toString();
 
-		const docRef = db.collection('pengeluaran').doc(String(currentId));
-		const docSnapshot = await docRef.get();
+		const decadeRef = db.collection('pengeluaran').doc(String(decadeId));
+		const decadeDoc = await decadeRef.get();
 
-		let updatedCashout;
-
-		if (docSnapshot.exists) {
-			const existingData = docSnapshot.data();
-			updatedCashout = {
-				...existingData,
-				...newEntry,
-				updatedAt: createdAt,
-			};
-		} else {
-			updatedCashout = {
-				...newEntry,
-				createdAt,
-			};
+		if (!decadeDoc.exists) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Decade tidak ditemukan',
+			});
 		}
 
-		await docRef.set(updatedCashout);
+		const decadeData = decadeDoc.data();
+		decadeData.cashouts = decadeData.cashouts || {};
+		decadeData.cashouts[cashoutId] = newCashout;
+
+		await decadeRef.set(decadeData);
 
 		res.status(200).json({
 			status: 'BERHASIL',
-			message: 'Data berhasil ditambahkan atau diperbarui',
-			data: { id: currentId },
+			message: 'Data berhasil ditambahkan',
+			data: { decadeId, cashoutId },
 		});
 	} catch (error) {
 		console.error('Error saat menambahkan data pengeluaran:', error);
@@ -117,229 +100,306 @@ const addCashout = async (req, res) => {
 	}
 };
 
-const generateCashoutPDF = async (req, res) => {
+const addDecade = async (req, res) => {
 	try {
-		const { id } = req.params;
-		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
-		if (!cashoutDoc.exists) {
+		let currentId = await getCurrentId();
+		const id = ++currentId;
+
+		const { decade } = req.body;
+		const createdAt = new Date().toISOString();
+		const decadeDate = new Date(decade).toISOString();
+
+		const newDecade = {
+			id,
+			decade: decadeDate,
+			createdAt,
+			updatedAt: createdAt,
+			cashouts: {},
+		};
+
+		await db.collection('pengeluaran').doc(String(id)).set(newDecade);
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Data decade berhasil ditambahkan',
+			data: { id },
+		});
+	} catch (error) {
+		console.error('Error saat menambahkan decade:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Decade gagal ditambahkan',
+		});
+	}
+};
+
+const getAllDecades = async (req, res) => {
+	try {
+		const snapshot = await db.collection('pengeluaran').get();
+		const decades = snapshot.docs.map((doc) => ({
+			id: doc.id,
+			...doc.data(),
+		}));
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Data decade berhasil diambil',
+			data: decades,
+		});
+	} catch (error) {
+		console.error('Error saat mengambil data decades:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Gagal mengambil data decades',
+		});
+	}
+};
+
+const getDecadeDetail = async (req, res) => {
+	try {
+		const { decadeId } = req.params;
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
+
+		if (!decadeDoc.exists) {
 			return res.status(404).json({
 				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
+				message: 'Decade tidak ditemukan',
 			});
 		}
 
-		const cashoutData = cashoutDoc.data();
-
-		const kontribusiYayasan = cashoutData.kontribusiYayasan || 0;
-		const honorGurumi = cashoutData.honorGurumi || 0;
-		const honorKeamanan = cashoutData.honorKeamanan || 0;
-		const honorKebersihan = cashoutData.honorKebersihan || 0;
-		const honorPendamping = cashoutData.honorPendamping || 0;
-		const eskomputer = cashoutData.eskomputer || 0;
-		const espramuka = cashoutData.espramuka || 0;
-		const espaskibra = cashoutData.espaskibra || 0;
-		const eskaligrafi = cashoutData.eskaligrafi || 0;
-		const essilat = cashoutData.essilat || 0;
-		const esfutsal = cashoutData.esfutsal || 0;
-		const oplistrik = cashoutData.oplistrik || 0;
-		const opinternet = cashoutData.opinternet || 0;
-		const opadm = cashoutData.opadm || 0;
-		const opgedung = cashoutData.opgedung || 0;
-		const oppkg = cashoutData.oppkg || 0;
-		const optransport = cashoutData.optransport || 0;
-		const oprapat = cashoutData.oprapat || 0;
-		const opkonsum = cashoutData.opkonsum || 0;
-		const opsampah = cashoutData.opsampah || 0;
-		const perbankan = cashoutData.perbankan || 0;
-		const bosGuru = cashoutData.bosGuru || 0;
-		const opBus = cashoutData.opBus || 0;
-		const btt = cashoutData.btt || 0;
-
-		const totalPengeluaran =
-			kontribusiYayasan +
-			honorGurumi +
-			honorKeamanan +
-			honorKebersihan +
-			honorPendamping +
-			eskomputer +
-			espramuka +
-			espaskibra +
-			eskaligrafi +
-			essilat +
-			esfutsal +
-			oplistrik +
-			opinternet +
-			opadm +
-			opgedung +
-			oppkg +
-			optransport +
-			oprapat +
-			opkonsum +
-			opsampah +
-			perbankan +
-			bosGuru +
-			opBus +
-			btt;
-
-		const tableData = [
-			{ deskripsi: 'Kontribusi Yayasan', nilai: formatValue(kontribusiYayasan) },
-			{ deskripsi: 'Honor Gurumi', nilai: formatValue(honorGurumi) },
-			{ deskripsi: 'Honor Keamanan', nilai: formatValue(honorKeamanan) },
-			{ deskripsi: 'Honor Kebersihan', nilai: formatValue(honorKebersihan) },
-			{ deskripsi: 'Honor Pendamping', nilai: formatValue(honorPendamping) },
-			{ deskripsi: 'Eskomp', nilai: formatValue(eskomputer) },
-			{ deskripsi: 'Espramuka', nilai: formatValue(espramuka) },
-			{ deskripsi: 'Espaskibra', nilai: formatValue(espaskibra) },
-			{ deskripsi: 'Eskaligrafi', nilai: formatValue(eskaligrafi) },
-			{ deskripsi: 'Essilat', nilai: formatValue(essilat) },
-			{ deskripsi: 'Esfutsal', nilai: formatValue(esfutsal) },
-			{ deskripsi: 'Oplistrik', nilai: formatValue(oplistrik) },
-			{ deskripsi: 'Opinternet', nilai: formatValue(opinternet) },
-			{ deskripsi: 'Opadm', nilai: formatValue(opadm) },
-			{ deskripsi: 'Opgedung', nilai: formatValue(opgedung) },
-			{ deskripsi: 'Oppkg', nilai: formatValue(oppkg) },
-			{ deskripsi: 'Optransport', nilai: formatValue(optransport) },
-			{ deskripsi: 'Oprapat', nilai: formatValue(oprapat) },
-			{ deskripsi: 'Opkonsum', nilai: formatValue(opkonsum) },
-			{ deskripsi: 'Opsampah', nilai: formatValue(opsampah) },
-			{ deskripsi: 'Perbankan', nilai: formatValue(perbankan) },
-			{ deskripsi: 'BOS Guru', nilai: formatValue(bosGuru) },
-			{ deskripsi: 'OpBus', nilai: formatValue(opBus) },
-			{ deskripsi: 'BTT', nilai: formatValue(btt) },
-			{ deskripsi: 'Total Pengeluaran', nilai: formatValue(totalPengeluaran) },
-		];
-
-		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pengeluaran.html'), 'utf-8');
-		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
-
-		res.send(htmlContent);
-	} catch (error) {
-		console.error('Error saat membuat laporan HTML untuk Cashout:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal membuat laporan HTML',
-		});
-	}
-};
-
-const finishSummary = async (req, res) => {
-	try {
-		await incrementAndSetNewId();
-		res.status(200).json({
-			status: 'BERHASIL',
-			message: 'Summary selesai dan ID baru dibuat',
-		});
-	} catch (error) {
-		console.error('Error saat menyelesaikan summary:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Tidak bisa menyelesaikan summary',
-		});
-	}
-};
-
-const getCashout = async (req, res) => {
-	try {
-		const cashoutSnapshot = await db.collection('pengeluaran').get();
-		const data = cashoutSnapshot.docs.filter((doc) => doc.id !== 'currentId').map((doc) => ({ id: doc.id, ...doc.data() }));
+		const decadeData = {
+			id: decadeDoc.id,
+			...decadeDoc.data(),
+		};
 
 		res.status(200).json({
 			status: 'BERHASIL',
-			data: data,
+			message: 'Data decade berhasil diambil',
+			data: decadeData,
 		});
 	} catch (error) {
-		console.error('Error saat mengambil data pengeluaran:', error);
+		console.error('Error saat mengambil detail decade:', error);
 		res.status(500).json({
 			status: 'GAGAL',
-			message: 'Gagal mengambil data pengeluaran',
+			message: 'Gagal mengambil detail decade',
 		});
 	}
 };
 
 const getCashoutById = async (req, res) => {
 	try {
-		const { id } = req.params;
-		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
-		if (!cashoutDoc.exists) {
-			res.status(404).json({
-				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
-			});
-		} else
-			res.status(200).json({
-				status: 'BERHASIL',
-				data: {
-					pengeluaran: cashoutDoc.data(),
-				},
-			});
-	} catch (error) {
-		console.error('Error saat mendapatkan id data pengeluaran:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Gagal mendapatkan data pengeluaran',
-		});
-	}
-};
+		const { decadeId, cashoutId } = req.params;
 
-const deleteCashout = async (req, res) => {
-	try {
-		const { id } = req.params;
-		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
-		if (!cashoutDoc.exists) {
-			res.status(404).json({
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
+
+		if (!decadeDoc.exists) {
+			return res.status(404).json({
 				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
-			});
-		} else {
-			await db.collection('pengeluaran').doc(id).delete();
-			res.status(200).json({
-				status: 'BERHASIL',
-				message: 'Data berhasil dihapus',
+				message: 'Decade tidak ditemukan',
 			});
 		}
+
+		const decadeData = decadeDoc.data();
+		const cashouts = decadeData.cashouts || {};
+
+		const cashout = cashouts[cashoutId];
+
+		if (!cashout) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Cashout tidak ditemukan',
+			});
+		}
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Data cashout berhasil diambil',
+			data: { cashoutId, ...cashout },
+		});
 	} catch (error) {
-		console.error('Error saat menghapus data:', error);
+		console.error('Error saat mengambil detail cashout:', error);
 		res.status(500).json({
 			status: 'GAGAL',
-			message: 'Gagal menghapus data',
+			message: 'Gagal mengambil detail cashout',
 		});
 	}
 };
 
 const updateCashout = async (req, res) => {
 	try {
-		const { id } = req.params;
-		const data = req.body;
+		const { decadeId, cashoutId } = req.params;
+		const updatedCashoutData = req.body;
 
-		if (Object.keys(data).length === 0) {
-			return res.status(400).json({
-				status: 'GAGAL',
-				message: 'Data yang akan diupdate tidak boleh kosong',
-			});
-		}
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
 
-		const cashoutDoc = await db.collection('pengeluaran').doc(id).get();
-		if (!cashoutDoc.exists) {
+		if (!decadeDoc.exists) {
 			return res.status(404).json({
 				status: 'GAGAL',
-				message: 'Data tidak ditemukan',
+				message: 'Decade tidak ditemukan',
 			});
 		}
 
-		// Lakukan update dengan data yang diberikan
-		await db.collection('pengeluaran').doc(id).update(data);
+		const decadeData = decadeDoc.data();
+		const cashouts = decadeData.cashouts || {};
+		const cashout = cashouts[cashoutId];
+
+		if (!cashout) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Cashout tidak ditemukan',
+			});
+		}
+
+		cashouts[cashoutId] = {
+			...cashouts[cashoutId],
+			...updatedCashoutData,
+			updatedAt: new Date().toISOString(),
+		};
+
+		await decadeRef.update({ cashouts });
 
 		res.status(200).json({
 			status: 'BERHASIL',
-			message: 'Data berhasil diedit',
+			message: 'Cashout berhasil diperbarui',
+			data: { cashoutId, ...cashouts[cashoutId] },
 		});
 	} catch (error) {
-		console.error('Error saat mengedit data:', error);
+		console.error('Error saat memperbarui cashout:', error);
 		res.status(500).json({
 			status: 'GAGAL',
-			message: 'Gagal mengedit data',
+			message: 'Cashout gagal diperbarui',
 		});
 	}
 };
 
-module.exports = { addCashout, getCashout, getCashoutById, deleteCashout, updateCashout, finishSummary, generateCashoutPDF };
+const deleteDecade = async (req, res) => {
+	try {
+		const { decadeId } = req.params;
+
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
+
+		if (!decadeDoc.exists) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Decade tidak ditemukan',
+			});
+		}
+
+		// Menghapus data decade
+		await decadeRef.delete();
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Decade berhasil dihapus',
+			data: { decadeId },
+		});
+	} catch (error) {
+		console.error('Error saat menghapus decade:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Decade gagal dihapus',
+		});
+	}
+};
+
+const deleteCashout = async (req, res) => {
+	try {
+		const { decadeId, cashoutId } = req.params;
+
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
+
+		if (!decadeDoc.exists) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Decade tidak ditemukan',
+			});
+		}
+
+		const decadeData = decadeDoc.data();
+		const cashouts = decadeData.cashouts || {};
+
+		if (!cashouts[cashoutId]) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Cashout tidak ditemukan',
+			});
+		}
+
+		delete cashouts[cashoutId];
+		await decadeRef.update({ cashouts });
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: 'Cashout berhasil dihapus',
+			data: { cashoutId },
+		});
+	} catch (error) {
+		console.error('Error saat menghapus cashout:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Cashout gagal dihapus',
+		});
+	}
+};
+
+const generateCashoutPDF = async (req, res) => {
+	try {
+		const { decadeId } = req.params;
+		const decadeDoc = await db.collection('pengeluaran').doc(decadeId).get();
+
+		if (!decadeDoc.exists) return res.status(404).json({ status: 'GAGAL', message: 'Decade tidak ditemukan' });
+
+		const { cashouts = {}, decade } = decadeDoc.data();
+
+		if (Object.keys(cashouts).length === 0)
+			return res.status(404).json({ status: 'GAGAL', message: 'Tidak ada cashout untuk decade ini' });
+
+		// Format total pengeluaran dan data tabel
+		const tableData = Object.entries(cashouts).flatMap(([_, cashout]) =>
+			Object.entries(cashout)
+				.filter(([key]) => !['createdAt', 'updatedAt'].includes(key))
+				.map(([key, value]) => ({ deskripsi: key, nilai: formatValue(value || '-') }))
+		);
+
+		const totalPengeluaran = Object.entries(cashouts)
+			.flatMap(([_, cashout]) =>
+				Object.values(cashout)
+					.filter((value) => !['createdAt', 'updatedAt'].includes(value))
+					.map((value) => Number(value) || 0)
+			)
+			.reduce((total, nilai) => total + nilai, 0);
+
+		// Format tahun untuk decade menjadi "YYYY/YYYY"
+		const informasiTanggal = decade
+			? new Date(decade).getFullYear() + '/' + (new Date(decade).getFullYear() + 1)
+			: 'Tanggal tidak tersedia';
+
+		// Tambahkan Total Pengeluaran ke dalam data tabel
+		tableData.push({ deskripsi: `Total Pengeluaran (${informasiTanggal})`, nilai: formatValue(totalPengeluaran) });
+
+		// Kirimkan HTML dengan data yang telah diproses
+		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pengeluaran.html'), 'utf-8');
+		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
+		res.setHeader('Content-Type', 'text/html').send(htmlContent);
+	} catch (error) {
+		console.error('Error saat membuat laporan:', error);
+		res.status(500).json({ status: 'GAGAL', message: 'Gagal membuat laporan' });
+	}
+};
+
+module.exports = {
+	addCashout,
+	addDecade,
+	getAllDecades,
+	getDecadeDetail,
+	getCashoutById,
+	updateCashout,
+	deleteCashout,
+	deleteDecade,
+	generateCashoutPDF,
+};
