@@ -48,8 +48,9 @@
 			tr:nth-child(even) {
 				background-color: #f9f9f9;
 			}
-			tr:hover {
-				background-color: #f1f1f1;
+			.total-row {
+				font-weight: bold;
+				background-color: white;
 			}
 		</style>
 	</head>
@@ -65,13 +66,28 @@
 		</div>
 		<script>
 			window.onload = function () {
+				// Parse data, total pengeluaran, dan informasi tanggal
 				const data = JSON.parse('{{data}}');
+				const totalPengeluaran = '{{totalPengeluaran}}';
+				const informasiTanggal = '{{informasiTanggal}}';
+
+				// Referensi tabel
 				const table = document.querySelector('table');
+
+				// Tambahkan baris data
 				data.forEach((row) => {
 					const tr = document.createElement('tr');
 					tr.innerHTML = `<td>${row.deskripsi}</td><td>${row.nilai}</td>`;
 					table.appendChild(tr);
 				});
+
+				// Tambahkan baris total pengeluaran dan informasi tanggal
+				const trTotal = document.createElement('tr');
+				trTotal.classList.add('total-row');
+				trTotal.innerHTML = `<td>Total Pemasukan (${informasiTanggal})</td><td>${totalPengeluaran}</td>`;
+				table.appendChild(trTotal);
+
+				// Cetak halaman
 				window.print();
 			};
 		</script>

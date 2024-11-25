@@ -2,17 +2,6 @@ const { db } = require('../services/dbconnect');
 const fs = require('fs');
 const path = require('path');
 
-const formatToRupiah = (amount) => {
-	return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
-};
-
-const formatValue = (value) => {
-	if (value === null || value === undefined || value === 0) {
-		return '-';
-	}
-	return formatToRupiah(value);
-};
-
 const getCurrentId = async () => {
 	const cashoutSnapshot = await db.collection('pengeluaran').orderBy('id', 'desc').limit(1).get();
 	if (cashoutSnapshot.empty) {
@@ -27,6 +16,7 @@ const addCashout = async (req, res) => {
 	try {
 		const { decadeId } = req.params;
 
+		// Field yang valid untuk cashout
 		const cashoutFields = [
 			'Kontribusi Yayasan',
 			'Honor Guru MI',
@@ -56,46 +46,68 @@ const addCashout = async (req, res) => {
 			'Tanggal Pengeluaran',
 		];
 
+		// Validasi field input
 		const newCashout = {};
-
 		for (const field in req.body) {
 			if (!cashoutFields.includes(field)) {
-				return res.status(404).json({
+				return res.status(400).json({
 					status: 'GAGAL',
-					message: `Data Tidak Sesuai: Field '${field}' tidak ditemukan dalam daftar field yang valid`,
+					message: `Field '${field}' tidak valid.`,
 				});
 			}
 			newCashout[field] = req.body[field];
 		}
-		newCashout['createdAt'] = new Date().toISOString();
-		const cashoutId = new Date().getTime().toString();
 
+		// Ambil data decade dari database
 		const decadeRef = db.collection('pengeluaran').doc(String(decadeId));
 		const decadeDoc = await decadeRef.get();
 
 		if (!decadeDoc.exists) {
 			return res.status(404).json({
 				status: 'GAGAL',
-				message: 'Decade tidak ditemukan',
+				message: 'Decade tidak ditemukan.',
 			});
 		}
 
 		const decadeData = decadeDoc.data();
 		decadeData.cashouts = decadeData.cashouts || {};
-		decadeData.cashouts[cashoutId] = newCashout;
 
+		// Iterasi berdasarkan jenis pengeluaran sebagai kunci
+		Object.keys(newCashout).forEach((jenisPengeluaran) => {
+			const nilaiPengeluaran = newCashout[jenisPengeluaran];
+			decadeData.cashouts[jenisPengeluaran] = {
+				totalPengeluaran: nilaiPengeluaran,
+				createdAt: new Date().toISOString(),
+			};
+		});
+
+		// Simpan kembali data ke database
 		await decadeRef.set(decadeData);
 
+		// Format data untuk respons
+		const cashoutsArray = Object.keys(decadeData.cashouts).map((key) => ({
+			jenisPengeluaran: key,
+			totalPengeluaran: decadeData.cashouts[key].totalPengeluaran,
+			createdAt: decadeData.cashouts[key].createdAt,
+		}));
+
+		// Kirimkan respons
 		res.status(200).json({
 			status: 'BERHASIL',
-			message: 'Data berhasil ditambahkan',
-			data: { decadeId, cashoutId },
+			message: 'Data decade berhasil diambil',
+			data: {
+				id: decadeId,
+				decade: decadeData.decade || null,
+				createdAt: decadeData.createdAt || null,
+				updatedAt: new Date().toISOString(),
+				cashouts: cashoutsArray,
+			},
 		});
 	} catch (error) {
 		console.error('Error saat menambahkan data pengeluaran:', error);
 		res.status(500).json({
 			status: 'GAGAL',
-			message: 'Input pengeluaran gagal ditambahkan',
+			message: 'Input pengeluaran gagal ditambahkan.',
 		});
 	}
 };
@@ -136,10 +148,19 @@ const addDecade = async (req, res) => {
 const getAllDecades = async (req, res) => {
 	try {
 		const snapshot = await db.collection('pengeluaran').get();
-		const decades = snapshot.docs.map((doc) => ({
-			id: doc.id,
-			...doc.data(),
-		}));
+		const decades = snapshot.docs.map((doc) => {
+			const data = doc.data();
+			// Ubah cashouts ke dalam bentuk array
+			const cashoutsArray = Object.entries(data.cashouts || {}).map(([key, value]) => ({
+				jenisPengeluaran: key,
+				...value,
+			}));
+			return {
+				id: doc.id,
+				...data,
+				cashouts: cashoutsArray,
+			};
+		});
 
 		res.status(200).json({
 			status: 'BERHASIL',
@@ -168,9 +189,17 @@ const getDecadeDetail = async (req, res) => {
 			});
 		}
 
+		const data = decadeDoc.data();
+		// Ubah cashouts ke dalam bentuk array
+		const cashoutsArray = Object.entries(data.cashouts || {}).map(([key, value]) => ({
+			jenisPengeluaran: key,
+			...value,
+		}));
+
 		const decadeData = {
 			id: decadeDoc.id,
-			...decadeDoc.data(),
+			...data,
+			cashouts: cashoutsArray,
 		};
 
 		res.status(200).json({
@@ -189,7 +218,7 @@ const getDecadeDetail = async (req, res) => {
 
 const getCashoutById = async (req, res) => {
 	try {
-		const { decadeId, cashoutId } = req.params;
+		const { decadeId, jenisPengeluaran } = req.params;
 
 		const decadeRef = db.collection('pengeluaran').doc(decadeId);
 		const decadeDoc = await decadeRef.get();
@@ -203,8 +232,7 @@ const getCashoutById = async (req, res) => {
 
 		const decadeData = decadeDoc.data();
 		const cashouts = decadeData.cashouts || {};
-
-		const cashout = cashouts[cashoutId];
+		const cashout = cashouts[jenisPengeluaran];
 
 		if (!cashout) {
 			return res.status(404).json({
@@ -216,7 +244,7 @@ const getCashoutById = async (req, res) => {
 		res.status(200).json({
 			status: 'BERHASIL',
 			message: 'Data cashout berhasil diambil',
-			data: { cashoutId, ...cashout },
+			data: { jenisPengeluaran, ...cashout },
 		});
 	} catch (error) {
 		console.error('Error saat mengambil detail cashout:', error);
@@ -229,7 +257,7 @@ const getCashoutById = async (req, res) => {
 
 const updateCashout = async (req, res) => {
 	try {
-		const { decadeId, cashoutId } = req.params;
+		const { decadeId, jenisPengeluaran } = req.params;
 		const updatedCashoutData = req.body;
 
 		const decadeRef = db.collection('pengeluaran').doc(decadeId);
@@ -244,7 +272,7 @@ const updateCashout = async (req, res) => {
 
 		const decadeData = decadeDoc.data();
 		const cashouts = decadeData.cashouts || {};
-		const cashout = cashouts[cashoutId];
+		const cashout = cashouts[jenisPengeluaran];
 
 		if (!cashout) {
 			return res.status(404).json({
@@ -253,8 +281,8 @@ const updateCashout = async (req, res) => {
 			});
 		}
 
-		cashouts[cashoutId] = {
-			...cashouts[cashoutId],
+		cashouts[jenisPengeluaran] = {
+			...cashouts[jenisPengeluaran],
 			...updatedCashoutData,
 			updatedAt: new Date().toISOString(),
 		};
@@ -264,7 +292,7 @@ const updateCashout = async (req, res) => {
 		res.status(200).json({
 			status: 'BERHASIL',
 			message: 'Cashout berhasil diperbarui',
-			data: { cashoutId, ...cashouts[cashoutId] },
+			data: { cashoutId, ...cashouts[jenisPengeluaran] },
 		});
 	} catch (error) {
 		console.error('Error saat memperbarui cashout:', error);
@@ -308,7 +336,7 @@ const deleteDecade = async (req, res) => {
 
 const deleteCashout = async (req, res) => {
 	try {
-		const { decadeId, cashoutId } = req.params;
+		const { decadeId, jenisPengeluaran } = req.params;
 
 		const decadeRef = db.collection('pengeluaran').doc(decadeId);
 		const decadeDoc = await decadeRef.get();
@@ -323,20 +351,20 @@ const deleteCashout = async (req, res) => {
 		const decadeData = decadeDoc.data();
 		const cashouts = decadeData.cashouts || {};
 
-		if (!cashouts[cashoutId]) {
+		if (!cashouts[jenisPengeluaran]) {
 			return res.status(404).json({
 				status: 'GAGAL',
 				message: 'Cashout tidak ditemukan',
 			});
 		}
 
-		delete cashouts[cashoutId];
+		delete cashouts[jenisPengeluaran];
 		await decadeRef.update({ cashouts });
 
 		res.status(200).json({
 			status: 'BERHASIL',
 			message: 'Cashout berhasil dihapus',
-			data: { cashoutId },
+			data: { jenisPengeluaran },
 		});
 	} catch (error) {
 		console.error('Error saat menghapus cashout:', error);
@@ -350,45 +378,59 @@ const deleteCashout = async (req, res) => {
 const generateCashoutPDF = async (req, res) => {
 	try {
 		const { decadeId } = req.params;
-		const decadeDoc = await db.collection('pengeluaran').doc(decadeId).get();
 
-		if (!decadeDoc.exists) return res.status(404).json({ status: 'GAGAL', message: 'Decade tidak ditemukan' });
+		// Mengambil data decade dari database
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
 
-		const { cashouts = {}, decade } = decadeDoc.data();
+		if (!decadeDoc.exists) {
+			return res.status(404).send('Data tidak ditemukan');
+		}
 
-		if (Object.keys(cashouts).length === 0)
-			return res.status(404).json({ status: 'GAGAL', message: 'Tidak ada cashout untuk decade ini' });
+		const decadeData = decadeDoc.data();
+		const cashouts = decadeData.cashouts || {};
 
-		// Format total pengeluaran dan data tabel
-		const tableData = Object.entries(cashouts).flatMap(([_, cashout]) =>
-			Object.entries(cashout)
-				.filter(([key]) => !['createdAt', 'updatedAt'].includes(key))
-				.map(([key, value]) => ({ deskripsi: key, nilai: formatValue(value || '-') }))
-		);
+		// Format data cashouts menjadi array untuk template HTML
+		const tableData = Object.keys(cashouts).map((key) => ({
+			deskripsi: key,
+			nilai: new Intl.NumberFormat('id-ID', {
+				style: 'currency',
+				currency: 'IDR',
+			}).format(cashouts[key].totalPengeluaran),
+		}));
 
-		const totalPengeluaran = Object.entries(cashouts)
-			.flatMap(([_, cashout]) =>
-				Object.values(cashout)
-					.filter((value) => !['createdAt', 'updatedAt'].includes(value))
-					.map((value) => Number(value) || 0)
-			)
-			.reduce((total, nilai) => total + nilai, 0);
+		// Hitung total pengeluaran
+		const totalPengeluaran = Object.values(cashouts).reduce((sum, item) => sum + item.totalPengeluaran, 0);
 
-		// Format tahun untuk decade menjadi "YYYY/YYYY"
-		const informasiTanggal = decade
-			? new Date(decade).getFullYear() + '/' + (new Date(decade).getFullYear() + 1)
+		// Format total pengeluaran
+		const totalPengeluaranFormatted = new Intl.NumberFormat('id-ID', {
+			style: 'currency',
+			currency: 'IDR',
+		}).format(totalPengeluaran);
+
+		// Ambil dan format informasi tanggal pemasukan
+		const informasiTanggal = decadeData.decade
+			? (() => {
+					const date = new Date(decadeData.decade);
+					return isNaN(date) ? 'Tanggal tidak tersedia' : `${date.getFullYear()}/${date.getFullYear() + 1}`;
+			  })()
 			: 'Tanggal tidak tersedia';
 
-		// Tambahkan Total Pengeluaran ke dalam data tabel
-		tableData.push({ deskripsi: `Total Pengeluaran (${informasiTanggal})`, nilai: formatValue(totalPengeluaran) });
-
-		// Kirimkan HTML dengan data yang telah diproses
+		// Membaca template HTML
 		const htmlTemplate = fs.readFileSync(path.join(__dirname, '../public', 'laporan-pengeluaran.html'), 'utf-8');
-		const htmlContent = htmlTemplate.replace('{{data}}', JSON.stringify(tableData));
-		res.setHeader('Content-Type', 'text/html').send(htmlContent);
+
+		// Inject data ke dalam template HTML
+		const htmlContent = htmlTemplate
+			.replace('{{data}}', JSON.stringify(tableData))
+			.replace('{{totalPengeluaran}}', totalPengeluaranFormatted)
+			.replace('{{informasiTanggal}}', informasiTanggal);
+
+		// Mengirimkan output HTML
+		res.set('Content-Type', 'text/html');
+		res.send(htmlContent);
 	} catch (error) {
-		console.error('Error saat membuat laporan:', error);
-		res.status(500).json({ status: 'GAGAL', message: 'Gagal membuat laporan' });
+		console.error('Error saat membuat laporan HTML:', error);
+		res.status(500).send('Terjadi kesalahan saat membuat laporan.');
 	}
 };
 

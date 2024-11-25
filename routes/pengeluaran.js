@@ -14,12 +14,12 @@ const {
 
 pengeluaran.get('/', getAllDecades);
 pengeluaran.get('/:decadeId', getDecadeDetail);
-pengeluaran.get('/:decadeId/cashout/:cashoutId', getCashoutById);
+pengeluaran.get('/:decadeId/cashout/:jenisPengeluaran', getCashoutById);
 pengeluaran.post('/input/decade', addDecade);
 pengeluaran.post('/input/:decadeId/cashout', addCashout);
 pengeluaran.delete('/delete/:decadeId/', deleteDecade);
-pengeluaran.delete('/delete/:decadeId/cashout/:cashoutId', deleteCashout);
-pengeluaran.put('/update/:decadeId/cashout/:cashoutId', updateCashout);
-pengeluaran.get('/:decadeId/cashout/pdf', generateCashoutPDF);
+pengeluaran.delete('/delete/:decadeId/cashout/:jenisPengeluaran', deleteCashout);
+pengeluaran.put('/update/:decadeId/cashout/:jenisPengeluaran', updateCashout);
+pengeluaran.get('/:decadeId/pdf', generateCashoutPDF);
 
 module.exports = pengeluaran;
