@@ -37,13 +37,13 @@
 			th,
 			td {
 				padding: 12px;
-				text-align: left;
 				border: 1px solid #ddd;
 			}
 			th {
 				background-color: #4caf50;
 				color: white;
 				font-weight: bold;
+				text-align: center;
 			}
 			tr:nth-child(even) {
 				background-color: #f9f9f9;
@@ -69,7 +69,7 @@
 				const table = document.querySelector('table');
 				data.forEach((row) => {
 					const tr = document.createElement('tr');
-					tr.innerHTML = `<td>${row.deskripsi}</td><td>${row.nilai}</td>`;
+					tr.innerHTML = `<td>${row.deskripsi}</td><td style="text-align: right;">${row.nilai}</td>`;
 					table.appendChild(tr);
 				});
 				window.print();
