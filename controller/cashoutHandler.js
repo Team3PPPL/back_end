@@ -271,18 +271,19 @@ const updateCashout = async (req, res) => {
 
 		const decadeData = decadeDoc.data();
 		const cashouts = decadeData.cashouts || {};
-		const cashout = cashouts[jenisPengeluaran];
 
-		if (!cashout) {
+		// Check if the specific jenisPengeluaran exists as a key
+		if (!cashouts[jenisPengeluaran]) {
 			return res.status(404).json({
 				status: 'GAGAL',
-				message: 'Cashout tidak ditemukan',
+				message: `Cashout dengan jenis "${jenisPengeluaran}" tidak ditemukan`,
 			});
 		}
 
+		// Update hanya pada key jenisPengeluaran
 		cashouts[jenisPengeluaran] = {
 			...cashouts[jenisPengeluaran],
-			...updatedCashoutData,
+			...updatedCashoutData, // Menggabungkan data baru
 			updatedAt: new Date().toISOString(),
 		};
 
@@ -291,7 +292,7 @@ const updateCashout = async (req, res) => {
 		res.status(200).json({
 			status: 'BERHASIL',
 			message: 'Cashout berhasil diperbarui',
-			data: { cashoutId, ...cashouts[jenisPengeluaran] },
+			data: { [jenisPengeluaran]: cashouts[jenisPengeluaran] },
 		});
 	} catch (error) {
 		console.error('Error saat memperbarui cashout:', error);
