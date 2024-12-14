@@ -270,29 +270,32 @@ const updateCashout = async (req, res) => {
 		}
 
 		const decadeData = decadeDoc.data();
-		const cashouts = decadeData.cashouts || {};
+		const cashouts = decadeData.cashouts || [];
 
-		// Check if the specific jenisPengeluaran exists as a key
-		if (!cashouts[jenisPengeluaran]) {
+		// Cari elemen dalam array yang sesuai dengan jenisPengeluaran
+		const targetIndex = cashouts.findIndex((cashout) => cashout.jenisPengeluaran === jenisPengeluaran);
+
+		if (targetIndex === -1) {
 			return res.status(404).json({
 				status: 'GAGAL',
 				message: `Cashout dengan jenis "${jenisPengeluaran}" tidak ditemukan`,
 			});
 		}
 
-		// Update hanya pada key jenisPengeluaran
-		cashouts[jenisPengeluaran] = {
-			...cashouts[jenisPengeluaran],
-			...updatedCashoutData, // Menggabungkan data baru
+		// Update elemen yang sesuai
+		cashouts[targetIndex] = {
+			...cashouts[targetIndex],
+			...updatedCashoutData,
 			updatedAt: new Date().toISOString(),
 		};
 
+		// Simpan kembali ke Firestore
 		await decadeRef.update({ cashouts });
 
 		res.status(200).json({
 			status: 'BERHASIL',
 			message: 'Cashout berhasil diperbarui',
-			data: { [jenisPengeluaran]: cashouts[jenisPengeluaran] },
+			data: cashouts[targetIndex],
 		});
 	} catch (error) {
 		console.error('Error saat memperbarui cashout:', error);
