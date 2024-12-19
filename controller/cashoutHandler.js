@@ -254,58 +254,6 @@ const getCashoutById = async (req, res) => {
 	}
 };
 
-const updateCashout = async (req, res) => {
-	try {
-		const { decadeId, jenisPengeluaran } = req.params;
-		const updatedCashoutData = req.body;
-
-		const decadeRef = db.collection('pengeluaran').doc(decadeId);
-		const decadeDoc = await decadeRef.get();
-
-		if (!decadeDoc.exists) {
-			return res.status(404).json({
-				status: 'GAGAL',
-				message: 'Decade tidak ditemukan',
-			});
-		}
-
-		const decadeData = decadeDoc.data();
-		const cashouts = decadeData.cashouts || [];
-
-		// Cari elemen dalam array yang sesuai dengan jenisPengeluaran
-		const targetIndex = cashouts.findIndex((cashout) => cashout.jenisPengeluaran === jenisPengeluaran);
-
-		if (targetIndex === -1) {
-			return res.status(404).json({
-				status: 'GAGAL',
-				message: `Cashout dengan jenis "${jenisPengeluaran}" tidak ditemukan`,
-			});
-		}
-
-		// Update elemen yang sesuai
-		cashouts[targetIndex] = {
-			...cashouts[targetIndex],
-			...updatedCashoutData,
-			updatedAt: new Date().toISOString(),
-		};
-
-		// Simpan kembali ke Firestore
-		await decadeRef.update({ cashouts });
-
-		res.status(200).json({
-			status: 'BERHASIL',
-			message: 'Cashout berhasil diperbarui',
-			data: cashouts[targetIndex],
-		});
-	} catch (error) {
-		console.error('Error saat memperbarui cashout:', error);
-		res.status(500).json({
-			status: 'GAGAL',
-			message: 'Cashout gagal diperbarui',
-		});
-	}
-};
-
 const deleteDecade = async (req, res) => {
 	try {
 		const { decadeId } = req.params;
@@ -333,6 +281,66 @@ const deleteDecade = async (req, res) => {
 		res.status(500).json({
 			status: 'GAGAL',
 			message: 'Decade gagal dihapus',
+		});
+	}
+};
+
+const updateCashout = async (req, res) => {
+	try {
+		const { decadeId, jenisPengeluaran } = req.params;
+		const { totalPengeluaran } = req.body;
+
+		// Validasi input
+		if (typeof totalPengeluaran !== 'number' || totalPengeluaran < 0) {
+			return res.status(400).json({
+				status: 'GAGAL',
+				message: 'Total pengeluaran harus berupa angka positif.',
+			});
+		}
+
+		// Ambil data decade dari database
+		const decadeRef = db.collection('pengeluaran').doc(decadeId);
+		const decadeDoc = await decadeRef.get();
+
+		if (!decadeDoc.exists) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Decade tidak ditemukan.',
+			});
+		}
+
+		const decadeData = decadeDoc.data();
+		const cashouts = decadeData.cashouts || {};
+
+		// Periksa apakah cashout dengan jenisPengeluaran tersedia
+		if (!cashouts[jenisPengeluaran]) {
+			return res.status(404).json({
+				status: 'GAGAL',
+				message: 'Cashout tidak ditemukan.',
+			});
+		}
+
+		// Update data cashout
+		cashouts[jenisPengeluaran].totalPengeluaran = totalPengeluaran;
+		cashouts[jenisPengeluaran].updatedAt = new Date().toISOString();
+
+		// Simpan perubahan ke database
+		await decadeRef.update({ cashouts });
+
+		res.status(200).json({
+			status: 'BERHASIL',
+			message: `Cashout dengan jenis pengeluaran '${jenisPengeluaran}' berhasil diupdate.`,
+			data: {
+				jenisPengeluaran,
+				totalPengeluaran,
+				updatedAt: cashouts[jenisPengeluaran].updatedAt,
+			},
+		});
+	} catch (error) {
+		console.error('Error saat mengupdate data cashout:', error);
+		res.status(500).json({
+			status: 'GAGAL',
+			message: 'Gagal mengupdate data cashout.',
 		});
 	}
 };
