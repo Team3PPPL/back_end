@@ -4,6 +4,7 @@ const app = express();
 const cashin = require('./routes/pemasukan');
 const cashout = require('./routes/pengeluaran');
 const total = require('./routes/total');
+const siswa = require('./routes/siswa');
 
 const startoServer = async () => {
 	const port = process.env.PORT || 3000;
@@ -18,6 +19,7 @@ const startoServer = async () => {
 		app.use('/total', total);
 		app.use('/pemasukan', cashin);
 		app.use('/pengeluaran', cashout);
+		app.use('/siswa', siswa);
 
 		app.listen(port, () => {
 			console.log(`http://localhost:${port}`);
